@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.env
+
+# Node
+node_modules/
+.next/
+
+# Uploads
+uploads/
+
+# OS
+.DS_Store
+Thumbs.db
