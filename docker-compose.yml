@@ -1,0 +1,72 @@
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: manuscript
+      POSTGRES_PASSWORD: manuscript
+      POSTGRES_DB: manuscript
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U manuscript"]
+      interval: 5s
+      retries: 5
+
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 5
+
+  mock:
+    image: python:3.11-slim
+    working_dir: /app
+    volumes:
+      - ./mock_services.py:/app/mock_services.py
+    command: python mock_services.py
+    ports:
+      - "9000:9000"
+
+  api:
+    build: ./backend
+    env_file: .env
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - uploads:/app/uploads
+
+  worker:
+    build: ./backend
+    command: python -m app.workers.main
+    env_file: .env
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      mock:
+        condition: service_started
+    volumes:
+      - uploads:/app/uploads
+
+  frontend:
+    build: ./frontend
+    env_file: ./frontend/.env
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+
+volumes:
+  postgres_data:
+  uploads:
