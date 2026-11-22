@@ -388,7 +388,7 @@ export default function Home() {
                     <thead>
                       <tr style={{ borderBottom: `2px solid ${c.border}` }}>
                         {["ID", "Title", ...(role === "editor" ? ["Author"] : []), "Status", "Decision", "Stages", "Words", "Score", ...(role === "editor" ? ["Action"] : [])].map(h => (
-                          <th key={h} style={{ padding: "10px 12px", fontWeight: 600, fontSize: 11, letterSpacing: "0.06em", textTransform: "uppercase", color: c.muted, textAlign: "left" }}>{h}</th>
+                          <th key={h} style={{ padding: "10px 12px", fontWeight: 600, fontSize: 11, letterSpacing: "0.06em", textTransform: "uppercase", color: c.muted, textAlign: (h === "Words" || h === "Score") ? "center" : "left" }}>{h}</th>
                         ))}
                       </tr>
                     </thead>
@@ -436,8 +436,8 @@ export default function Home() {
                               })}
                             </div>
                           </td>
-                          <td style={{ padding: "10px 12px", color: m.word_count != null ? c.fg : c.muted, fontVariantNumeric: "tabular-nums" }}>{m.word_count ?? "-"}</td>
-                          <td style={{ padding: "10px 12px", color: m.similarity_score != null ? c.fg : c.muted, fontVariantNumeric: "tabular-nums" }}>{m.similarity_score != null ? `${m.similarity_score}` : "-"}</td>
+                          <td style={{ padding: "10px 12px", color: m.word_count != null ? c.fg : c.muted, fontVariantNumeric: "tabular-nums", textAlign: "center" }}>{m.word_count ?? "-"}</td>
+                          <td style={{ padding: "10px 12px", color: m.similarity_score != null ? c.fg : c.muted, fontVariantNumeric: "tabular-nums", textAlign: "center" }}>{m.similarity_score != null ? `${m.similarity_score}` : "-"}</td>
                           {role === "editor" && (
                             <td style={{ padding: "10px 12px" }}>
                               <select value={m.editor_status} onChange={e => updateEditorStatus(m.id, e.target.value)}
