@@ -105,6 +105,7 @@ gracefully by the service:
 | `ms_014.txt` | Not a plain text file (binary/wrong encoding) | HTTP 422 — rejected at validation stage |
 | `ms_019.txt` | Invalid `author_email`: `"not-an-email"` | HTTP 422 — rejected by API validation |
 | `ms_020.txt` | Listed in manifest but file does not exist | Skipped by `submit_all.py` with reason "file not found" |
+| `ms_015.txt` | Large file (7.4 MB) | Accepted — within the 50 MB limit; goes through the full pipeline |
 | `ms_018 final (v2).txt` | Spaces and special characters in filename | Accepted — `sanitise_filename()` strips unsafe characters before saving |
 
 ---
