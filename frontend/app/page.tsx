@@ -78,6 +78,7 @@ export default function Home() {
   const [role, setRole] = useState<string | null>(null);
   const [manuscripts, setManuscripts] = useState<Manuscript[]>([]);
   const [loginError, setLoginError] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [submitMsg, setSubmitMsg] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [dragOver, setDragOver] = useState(false);
@@ -231,13 +232,20 @@ export default function Home() {
           </div>
           <form onSubmit={login} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             <input name="email" type="email" required placeholder="Email" defaultValue="author@example.com" style={inp} />
-            <input name="password" type="password" required placeholder="Password" defaultValue="password123" style={inp} />
+            <div style={{ position: "relative" }}>
+              <input name="password" type={showPassword ? "text" : "password"} required placeholder="Password" defaultValue="password123" style={{ ...inp, paddingRight: 40 }} />
+              <button type="button" onClick={() => setShowPassword(v => !v)} tabIndex={-1}
+                style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: c.muted, fontSize: 16, lineHeight: 1, padding: 0 }}
+                title={showPassword ? "Hide password" : "Show password"}>
+                {showPassword ? "🙈" : "👁"}
+              </button>
+            </div>
             {loginError && <p style={{ color: "#dc2626", fontSize: 13, margin: 0 }}>{loginError}</p>}
             <button type="submit" style={{ background: c.btnBg, color: c.btnFg, border: "none", borderRadius: 6, padding: "8px 16px", fontSize: 14, cursor: "pointer", fontWeight: 600, marginTop: 8 }}>
               Log in
             </button>
           </form>
-          <p style={{ marginTop: 16, fontSize: 12, color: c.muted, lineHeight: 1.6 }}>
+          <p style={{ marginTop: 16, fontSize: 12, color: c.muted, lineHeight: 1.6, textAlign: "center" }}>
             author@example.com / password123<br />
             editor@example.com / password123
           </p>
