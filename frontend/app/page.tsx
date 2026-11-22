@@ -387,7 +387,7 @@ export default function Home() {
                   <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, background: c.surface }}>
                     <thead>
                       <tr style={{ borderBottom: `2px solid ${c.border}` }}>
-                        {["ID", "Title", ...(role === "editor" ? ["Author"] : []), "Status", "Stages", "Words", "Score", ...(role === "editor" ? ["Decision"] : [])].map(h => (
+                        {["ID", "Title", ...(role === "editor" ? ["Author"] : []), "Status", "Decision", "Stages", "Words", "Score", ...(role === "editor" ? ["Action"] : [])].map(h => (
                           <th key={h} style={{ padding: "10px 12px", fontWeight: 600, fontSize: 11, letterSpacing: "0.06em", textTransform: "uppercase", color: c.muted, textAlign: "left" }}>{h}</th>
                         ))}
                       </tr>
@@ -411,6 +411,17 @@ export default function Home() {
                                 {m.status}
                               </span>
                             </Tooltip>
+                          </td>
+                          <td style={{ padding: "10px 12px" }}>
+                            {(() => {
+                              const decisionColor: Record<string, string> = { pending: "#6b7280", accepted: "#16a34a", rejected: "#dc2626", revision_requested: "#d97706" };
+                              const col = decisionColor[m.editor_status] ?? "#6b7280";
+                              return (
+                                <span style={{ padding: "2px 8px", borderRadius: 4, background: col + "25", color: col, fontWeight: 700, fontSize: 11 }}>
+                                  {m.editor_status.replace("_", " ")}
+                                </span>
+                              );
+                            })()}
                           </td>
                           <td style={{ padding: "10px 12px" }}>
                             <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
