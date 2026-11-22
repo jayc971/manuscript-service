@@ -1,5 +1,75 @@
 # Manuscript Submission Service
 
+## Quick Start
+
+```bash
+docker-compose up --build
+```
+
+That starts all 6 services: PostgreSQL, Redis, the mock similarity/notify service,
+the API, the background worker, and the Next.js frontend.
+
+- Frontend: http://localhost:3000
+- API docs: http://localhost:8000/docs
+
+### Seed Credentials
+
+| Role | Email | Password |
+|------|-------|----------|
+| Author | author@example.com | password123 |
+| Editor | editor@example.com | password123 |
+
+The seed script runs automatically on API startup. Both users are ready
+immediately after `docker-compose up`.
+
+### Bulk Submit (sample data)
+
+```bash
+python submit_all.py
+# or with options:
+python submit_all.py --api http://localhost:8000 --concurrency 5
+```
+
+Requires `httpx`: `pip install httpx`. Reads `manifest.csv` from the repo root,
+logs in as the author, and submits all manuscripts concurrently.
+
+---
+
+## Sample Data Problems
+
+The provided sample data contains intentional quality issues. These are handled
+gracefully by the service:
+
+| File | Problem | Result |
+|------|---------|--------|
+| `ms_013.txt` | Empty file (0 bytes) | HTTP 422 — rejected at validation stage |
+| `ms_014.txt` | Not a plain text file (binary/wrong encoding) | HTTP 422 — rejected at validation stage |
+| `ms_019.txt` | Invalid `author_email`: `"not-an-email"` | HTTP 422 — rejected by API validation |
+| `ms_020.txt` | Listed in manifest but file does not exist | Skipped by `submit_all.py` with reason "file not found" |
+| `ms_018 final (v2).txt` | Spaces and special characters in filename | Accepted — `sanitise_filename()` strips unsafe characters before saving |
+
+---
+
+## Why Polling Instead of WebSockets
+
+The frontend polls `GET /manuscripts` every 5 seconds rather than using
+WebSockets or Server-Sent Events. The assignment (§3.6) explicitly allows
+polling with justification:
+
+- **Simplicity:** No persistent connection infrastructure needed. Works behind
+  any proxy, CDN, or load balancer with no special configuration.
+- **Appropriate interval:** Pipeline stages take 10–30 seconds each. A 5-second
+  poll lag is imperceptible to the user.
+- **Stateless API:** Each poll is an independent request. No session affinity
+  required, which is important when scaling API replicas horizontally.
+- **Reliability:** If the connection drops, the next poll recovers automatically.
+  A dropped WebSocket requires reconnect logic and state reconciliation.
+
+For a real-time dashboard (sub-second updates) WebSockets or SSE would be the
+right choice. For a pipeline that takes minutes, polling is simpler and more robust.
+
+---
+
 ## Queue Decisions
 
 ### Direct vs Queued
