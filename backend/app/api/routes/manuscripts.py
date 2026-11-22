@@ -1,3 +1,4 @@
+import logging
 from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException, status
 from pydantic import EmailStr
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -10,6 +11,7 @@ from app.models.manuscript import Manuscript, ManuscriptStatus, EditorStatus
 from app.schemas.manuscript import ManuscriptResponse, ManuscriptSubmitResponse, StageResponse, EditorStatusUpdate
 from app.services.manuscript_service import save_upload, create_manuscript, get_manuscript, list_manuscripts
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/manuscripts", tags=["manuscripts"])
 
 VALID_PRIORITIES = {"normal", "high"}
@@ -46,6 +48,7 @@ async def submit_manuscript(
     await pool.enqueue_job("process_manuscript", manuscript.id)
     await pool.aclose()
 
+    logger.info(f"[{manuscript.id}] Submitted by user {current_user.id} priority={priority}")
     return ManuscriptSubmitResponse(id=manuscript.id, status=manuscript.status.value)
 
 @router.get("", response_model=list[ManuscriptResponse])
@@ -104,6 +107,7 @@ async def update_editor_status(
     await pool.aclose()
 
     await db.commit()
+    logger.info(f"[{manuscript.id}] Editor status updated to {body.status} by user {editor.id}")
     return _to_response(manuscript)
 
 def _to_response(m: Manuscript) -> ManuscriptResponse:

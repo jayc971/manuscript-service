@@ -1,0 +1,21 @@
+file_name,title,author_email,priority
+ms_001.txt,Reading Habits in the Digital Age,ben@example.org,normal
+ms_002.txt,A Survey of Editorial Workflows,chloe@example.org,normal
+ms_003.txt,Open Access and Reader Reach,dev@example.org,normal
+ms_004.txt,Peer Review Under Time Pressure,eli@example.org,high
+ms_005.txt,Annotation Tools in Classrooms,amy@example.org,normal
+ms_006.txt,Long Term Storage of Digital Texts,ben@example.org,normal
+ms_007.txt,Style Guides Across Disciplines,chloe@example.org,normal
+ms_008.txt,Translation Choices in Fiction,dev@example.org,normal
+ms_009.txt,Readability and Retention,eli@example.org,high
+ms_010.txt,"Figures, Tables and Comprehension",amy@example.org,normal
+ms_011.txt,Indexing Practices Compared,ben@example.org,normal
+ms_012.txt,Collaborative Writing at Scale,chloe@example.org,normal
+ms_013.txt,Editing in Three Languages,dev@example.org,normal
+ms_014.txt,Deadlines and Draft Quality,eli@example.org,normal
+ms_015.txt,Archives and Access,amy@example.org,normal
+ms_016.txt,Footnotes in Modern Prose,zoe@example.org,normal
+ms_017.txt,Serial Publishing Revisited,chloe@example.org,high
+ms_018 final (v2).txt,Typography and Trust,dev@example.org,normal
+ms_019.txt,Reviewer Fatigue,not-an-email,normal
+ms_020.txt,Missing Manuscript,amy@example.org,normal

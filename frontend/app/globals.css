@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 :root {
-  --background: #ffffff;
+  --background: #f5f7fa;
   --foreground: #171717;
 }
 
@@ -23,5 +23,34 @@ body {
 @layer utilities {
   .text-balance {
     text-wrap: balance;
+  }
+}
+
+/* Override browser autofill highlight — light mode */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 1000px #f0f4f8 inset !important;
+  -webkit-text-fill-color: #111827 !important;
+  transition: background-color 9999s ease-in-out 0s;
+}
+
+/* Dark mode autofill */
+:root[data-theme="dark"] input:-webkit-autofill,
+:root[data-theme="dark"] input:-webkit-autofill:hover,
+:root[data-theme="dark"] input:-webkit-autofill:focus,
+:root[data-theme="dark"] input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 1000px #1e2130 inset !important;
+  -webkit-text-fill-color: #f1f5f9 !important;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) input:-webkit-autofill,
+  :root:not([data-theme="light"]) input:-webkit-autofill:hover,
+  :root:not([data-theme="light"]) input:-webkit-autofill:focus,
+  :root:not([data-theme="light"]) input:-webkit-autofill:active {
+    -webkit-box-shadow: 0 0 0 1000px #1e2130 inset !important;
+    -webkit-text-fill-color: #f1f5f9 !important;
   }
 }
