@@ -35,6 +35,65 @@ logs in as the author, and submits all manuscripts concurrently.
 
 ---
 
+## Schema
+
+Four tables, managed with Alembic migrations (`alembic upgrade head` runs automatically on API startup).
+
+### `users`
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | string (UUID) | Primary key |
+| `email` | string | Unique, indexed |
+| `password_hash` | string | bcrypt |
+| `role` | enum | `author` \| `editor` |
+| `created_at` | timestamptz | |
+
+### `manuscripts`
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | string | Primary key — format `m_<8-char fragment>` |
+| `owner_id` | string | FK → `users.id`, indexed |
+| `title` | string | |
+| `author_email` | string | Validated as RFC-5322 email at submit time |
+| `file_path` | string | Local path (S3 key in production — see DEPLOYMENT.md) |
+| `file_name` | string | Sanitised original filename |
+| `status` | enum | `received` → `processing` → `done` / `error` |
+| `editor_status` | enum | `pending` / `accepted` / `rejected` / `revision_requested` |
+| `priority` | enum | `normal` \| `high` |
+| `word_count` | integer | Null until `text_extracted` stage completes |
+| `preview` | text | First 200 words, null until `preview_built` stage |
+| `similarity_score` | float | 0–1 from similarity service, null until checked |
+| `needs_attention` | boolean | True if similarity score > 0.8 |
+| `created_at` | timestamptz | |
+| `updated_at` | timestamptz | Auto-updated on change |
+
+### `manuscript_stages`
+One row per stage per manuscript. Five stages are created when a manuscript is submitted.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | string (UUID) | Primary key |
+| `manuscript_id` | string | FK → `manuscripts.id`, indexed |
+| `name` | string | `validated` / `text_extracted` / `similarity_checked` / `preview_built` / `author_notified` |
+| `status` | enum | `pending` / `running` / `done` / `retrying` / `error` |
+| `started_at` | timestamptz | Set when stage begins |
+| `finished_at` | timestamptz | Set when stage completes |
+| `attempts` | integer | Incremented on each retry |
+| `last_error` | text | Last exception message, visible in the UI |
+
+### `notification_keys`
+Deduplication table — prevents the same email being sent twice even if a job retries.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | string (UUID) | Primary key |
+| `key` | string | Unique — format `{manuscript_id}:{event_type}` |
+| `created_at` | timestamptz | |
+
+Before calling `/notify`, the worker inserts this key. If the insert fails (key already exists), the email was already sent and the call is skipped.
+
+---
+
 ## Sample Data Problems
 
 The provided sample data contains intentional quality issues. These are handled
@@ -106,3 +165,49 @@ The job has a time limit. When that limit runs out the queue makes the job avail
 ### When I would pick a different queue technology
 
 Redis with ARQ works well here because it is simple to set up in docker-compose and fits naturally with async Python. In production at scale I would look at a managed option like Amazon SQS or Google Cloud Tasks because they handle reliability at the infrastructure level and the application code does not have to worry about it. I would consider RabbitMQ if the team already had it running and needed more control over how jobs are routed.
+
+---
+
+## Extra Credit
+
+Beyond the core requirements, the following was implemented:
+
+- **Structured logging** — every log line from the API and worker is prefixed with `[manuscript_id]` where relevant, making it straightforward to trace a single manuscript through docker-compose logs.
+- **`needs_attention` flag** — manuscripts with a similarity score above 0.8 are automatically flagged. The frontend shows these highlighted so editors can prioritise them.
+- **Bulk submit script** (`submit_all.py`) — reads `manifest.csv`, logs in as the author, and submits all manuscripts concurrently with a configurable semaphore. Useful for load-testing and for reproducing the sample data problems.
+- **Priority field** — manuscripts accept `priority: normal | high`. The field is stored and returned in all responses. A separate high-priority queue was not implemented (see Known Issues).
+- **Idempotent pipeline resume** — if the worker restarts mid-pipeline, it checks each stage's current status before doing work. Completed stages are skipped rather than re-run.
+
+What I would do differently with more time:
+- Replace the per-process `asyncio.Semaphore(4)` for the similarity service with a Redis-backed distributed lock so the limit holds across multiple worker replicas.
+- Add a `POST /manuscripts/{id}/retry` endpoint so operators can replay a manuscript stuck in `error` state without touching the queue directly.
+- Add an admin endpoint to inspect and replay the dead-letter queue.
+- Implement a WebSocket or SSE channel for the frontend — polling at 5 seconds is acceptable for this pipeline, but SSE would halve the perceived latency for free.
+
+---
+
+## Known Issues
+
+| Issue | Detail |
+|-------|--------|
+| Priority queue not enforced | The `priority` field is stored but all jobs go into the same ARQ queue. High-priority manuscripts are not processed before normal ones. A real implementation would use two separate ARQ pools (one per priority) or a priority-aware queue library. |
+| Duplicate text detection | The service checks plagiarism against an external index, but does not detect when the same author submits the same file twice. A content hash on upload could catch exact duplicates before they enter the pipeline. |
+| `POST /manuscripts/{id}/retry` not implemented | A manuscript stuck in `error` status can only be replayed by re-submitting it. An operator replay endpoint is noted in Extra Credit above but was deferred. |
+| `submit_all.py` skips `ms_020.txt` | The file is listed in `manifest.csv` but does not exist in the sample data directory. The script logs the skip with reason "file not found". |
+| File storage is local | Uploads go to a Docker volume. With multiple API replicas this breaks. The DEPLOYMENT.md section covers the S3 migration path. |
+
+---
+
+## AI Assistance
+
+This project was built with Claude Code (Anthropic) as a coding assistant throughout.
+
+Claude helped with:
+- Project scaffolding — FastAPI app structure, SQLAlchemy models, Alembic async configuration
+- ARQ worker task implementation, retry logic, and dead-letter handling
+- Bug fixes — bcrypt 4.x compatibility, Alembic `run_sync` pattern for async engines, import resolution
+- Next.js frontend component and polling logic
+- DEPLOYMENT.md architecture documentation
+- README content, queue decisions write-up, and this section
+
+The architectural decisions — queue design, idempotency approach, 5-stage pipeline design, per-stage DB session strategy — were driven by the assignment requirements and my own judgment about distributed systems tradeoffs.

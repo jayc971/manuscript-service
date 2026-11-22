@@ -99,6 +99,37 @@ phase 1 adds the new shape, phase 2 removes the old one after rollout.
 
 ---
 
+## Environments and Releases
+
+### Three environments
+
+| | dev | staging | production |
+|-|-----|---------|------------|
+| Infrastructure | docker-compose, laptop or shared VM | Same as prod at smaller scale (1 API, 2 workers) | Full scale — see architecture diagram |
+| Database | Local postgres container | Anonymised copy of prod data | RDS Multi-AZ |
+| File storage | Local volume | S3 staging bucket | S3 production bucket |
+| Notify / Similarity | Mock service (port 9000) | Mock or sandboxed vendor endpoint | Live external services |
+| Secrets | `.env` file | Injected by CI/CD from secrets manager | AWS Secrets Manager / IAM roles |
+
+### Promoting a change
+
+1. Merge to `main` → CI builds and tags the Docker image (semver or git SHA).
+2. Deploy the tagged image to **staging**. Run smoke tests: submit one manuscript, confirm all 5 stages complete, check `/notify/log` for no duplicates.
+3. If staging is green, deploy the **same image tag** to production. Never rebuild for production — the image that passed staging is the image that ships.
+4. If a migration is included: the Alembic init container runs first. If it fails, the deploy stops and no new API replicas start.
+
+### In-flight jobs during a deploy
+
+ARQ workers respect SIGTERM — they finish the job they are currently running before exiting. The rolling deploy strategy:
+
+1. Start new worker replicas (new code, consuming new jobs).
+2. Send SIGTERM to old replicas. Each finishes its current job, then exits cleanly.
+3. The queue drains continuously throughout. No jobs are lost.
+
+The API replicas are stateless and can be replaced in parallel with no coordination. The database migration runs as a dependency before any new container starts, so there is never a moment when new code hits an old schema.
+
+---
+
 ## Secrets
 
 Never commit `.env` files. Inject at runtime:
@@ -153,3 +184,25 @@ pipeline stage links back to the original submission in the trace.
 Worker count drives most of the cost. If latency SLA allows a longer queue
 drain time (e.g. 30 minutes), 3 workers (~$210/month total) are enough for
 average load with auto-scaling to 10 on burst.
+
+---
+
+## When Things Go Wrong
+
+### Similarity service is down for an hour
+
+Jobs that reach the `similarity_checked` stage fail and retry with exponential backoff (2 s → 4 s → 8 s). After 4 attempts the job is moved to the ARQ dead-letter queue and the stage is marked `error` with the last exception message. The manuscript's overall status becomes `error` so the author and editor can see what happened. All other manuscripts whose pipeline does not currently need the similarity service continue processing normally. When the service recovers, an operator can replay dead-letter jobs by re-enqueuing them with the manuscript ID.
+
+### A job keeps crashing its worker (poison pill)
+
+A malformed file — valid-looking text with embedded binary sequences, an encoding edge case — can cause a stage to crash on every attempt. After `max_retries` (4) the job is not re-queued and the stage is marked `error`. The ARQ dead-letter queue holds the job metadata for manual inspection. The worker itself is not affected; it moves to the next job immediately after the exception is caught and logged. Recovery: read the error from the manuscript's stage record, fix the file or the extraction logic, then replay the job.
+
+There is no automatic poison-pill detection beyond the retry cap. A future improvement: alert on-call if the same job ID fails more than twice within a short window.
+
+### Queue (Redis) becomes unavailable
+
+The API still accepts submissions — it writes the manuscript row to the database — but the `enqueue_job` call raises and the endpoint returns 500. The manuscript row exists in `received` status with no stages started. It is not lost. When Redis recovers, an operator can replay any manuscript stuck in `received` by re-enqueuing its ID. Active workers that cannot reach Redis to fetch the next job wait with backoff and resume automatically when connectivity returns.
+
+### Database goes down for a minute
+
+API requests that need a database connection fail with 503 (the SQLAlchemy pool raises before any business logic runs). Workers that try to write stage updates also fail and retry with backoff. There is a small race window in the `author_notified` stage: the worker calls the notify service and then writes the `NotificationKey` row. If the database goes down between those two steps, the email was sent but the key was not recorded. On retry, the email is sent again — the notify service's idempotency key deduplicates it on their side, so the author receives only one email. No other stage has this window because the external call is the last step.
