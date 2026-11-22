@@ -1,21 +1,28 @@
 import asyncio
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from app.models.user import User, UserRole
 from app.core.security import hash_password
 from app.core.config import settings
+
+SEED_USERS = [
+    ("author@example.com", "password123", UserRole.author),
+    ("editor@example.com", "password123", UserRole.editor),
+]
 
 async def seed():
     engine = create_async_engine(settings.database_url)
     Session = async_sessionmaker(engine, expire_on_commit=False)
 
     async with Session() as db:
-        author = User(email="author@example.com", password_hash=hash_password("password123"), role=UserRole.author)
-        editor = User(email="editor@example.com", password_hash=hash_password("password123"), role=UserRole.editor)
-        db.add(author)
-        db.add(editor)
+        for email, password, role in SEED_USERS:
+            exists = await db.scalar(select(User).where(User.email == email))
+            if not exists:
+                db.add(User(email=email, password_hash=hash_password(password), role=role))
+                print(f"Seeded: {email} ({role.value})")
+            else:
+                print(f"Already exists: {email} — skipping")
         await db.commit()
-        print("Seeded: author@example.com / password123 (author)")
-        print("Seeded: editor@example.com / password123 (editor)")
 
     await engine.dispose()
 
