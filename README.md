@@ -51,11 +51,11 @@ Four tables, managed with Alembic migrations (`alembic upgrade head` runs automa
 ### `manuscripts`
 | Column | Type | Notes |
 |--------|------|-------|
-| `id` | string | Primary key — format `m_<8-char fragment>` |
+| `id` | string | Primary key - format `m_<8-char fragment>` |
 | `owner_id` | string | FK → `users.id`, indexed |
 | `title` | string | |
 | `author_email` | string | Validated as RFC-5322 email at submit time |
-| `file_path` | string | Local path (S3 key in production — see DEPLOYMENT.md) |
+| `file_path` | string | Local path (S3 key in production - see DEPLOYMENT.md) |
 | `file_name` | string | Sanitised original filename |
 | `status` | enum | `received` → `processing` → `done` / `error` |
 | `editor_status` | enum | `pending` / `accepted` / `rejected` / `revision_requested` |
@@ -82,12 +82,12 @@ One row per stage per manuscript. Five stages are created when a manuscript is s
 | `last_error` | text | Last exception message, visible in the UI |
 
 ### `notification_keys`
-Deduplication table — prevents the same email being sent twice even if a job retries.
+Deduplication table - prevents the same email being sent twice even if a job retries.
 
 | Column | Type | Notes |
 |--------|------|-------|
 | `id` | string (UUID) | Primary key |
-| `key` | string | Unique — format `{manuscript_id}:{event_type}` |
+| `key` | string | Unique - format `{manuscript_id}:{event_type}` |
 | `created_at` | timestamptz | |
 
 Before calling `/notify`, the worker inserts this key. If the insert fails (key already exists), the email was already sent and the call is skipped.
@@ -101,12 +101,12 @@ gracefully by the service:
 
 | File | Problem | Result |
 |------|---------|--------|
-| `ms_013.txt` | Empty file (0 bytes) | HTTP 422 — rejected at validation stage |
-| `ms_014.txt` | Not a plain text file (binary/wrong encoding) | HTTP 422 — rejected at validation stage |
-| `ms_019.txt` | Invalid `author_email`: `"not-an-email"` | HTTP 422 — rejected by API validation |
+| `ms_013.txt` | Empty file (0 bytes) | HTTP 422 - rejected at validation stage |
+| `ms_014.txt` | Not a plain text file (binary/wrong encoding) | HTTP 422 - rejected at validation stage |
+| `ms_019.txt` | Invalid `author_email`: `"not-an-email"` | HTTP 422 - rejected by API validation |
 | `ms_020.txt` | Listed in manifest but file does not exist | Skipped by `submit_all.py` with reason "file not found" |
-| `ms_015.txt` | Large file (7.4 MB) | Accepted — within the 50 MB limit; goes through the full pipeline |
-| `ms_018 final (v2).txt` | Spaces and special characters in filename | Accepted — `sanitise_filename()` strips unsafe characters before saving |
+| `ms_015.txt` | Large file (7.4 MB) | Accepted - within the 50 MB limit; goes through the full pipeline |
+| `ms_018 final (v2).txt` | Spaces and special characters in filename | Accepted - `sanitise_filename()` strips unsafe characters before saving |
 
 ---
 
@@ -173,17 +173,17 @@ Redis with ARQ works well here because it is simple to set up in docker-compose 
 
 Beyond the core requirements, the following was implemented:
 
-- **Structured logging** — every log line from the API and worker is prefixed with `[manuscript_id]` where relevant, making it straightforward to trace a single manuscript through docker-compose logs.
-- **`needs_attention` flag** — manuscripts with a similarity score above 0.8 are automatically flagged. The frontend shows these highlighted so editors can prioritise them.
-- **Bulk submit script** (`submit_all.py`) — reads `manifest.csv`, logs in as the author, and submits all manuscripts concurrently with a configurable semaphore. Useful for load-testing and for reproducing the sample data problems.
-- **Priority field** — manuscripts accept `priority: normal | high`. The field is stored and returned in all responses. A separate high-priority queue was not implemented (see Known Issues).
-- **Idempotent pipeline resume** — if the worker restarts mid-pipeline, it checks each stage's current status before doing work. Completed stages are skipped rather than re-run.
+- **Structured logging** - every log line from the API and worker is prefixed with `[manuscript_id]` where relevant, making it straightforward to trace a single manuscript through docker-compose logs.
+- **`needs_attention` flag** - manuscripts with a similarity score above 0.8 are automatically flagged. The frontend shows these highlighted so editors can prioritise them.
+- **Bulk submit script** (`submit_all.py`) - reads `manifest.csv`, logs in as the author, and submits all manuscripts concurrently with a configurable semaphore. Useful for load-testing and for reproducing the sample data problems.
+- **Priority field** - manuscripts accept `priority: normal | high`. The field is stored and returned in all responses. A separate high-priority queue was not implemented (see Known Issues).
+- **Idempotent pipeline resume** - if the worker restarts mid-pipeline, it checks each stage's current status before doing work. Completed stages are skipped rather than re-run.
 
 What I would do differently with more time:
 - Replace the per-process `asyncio.Semaphore(4)` for the similarity service with a Redis-backed distributed lock so the limit holds across multiple worker replicas.
 - Add a `POST /manuscripts/{id}/retry` endpoint so operators can replay a manuscript stuck in `error` state without touching the queue directly.
 - Add an admin endpoint to inspect and replay the dead-letter queue.
-- Implement a WebSocket or SSE channel for the frontend — polling at 5 seconds is acceptable for this pipeline, but SSE would halve the perceived latency for free.
+- Implement a WebSocket or SSE channel for the frontend - polling at 5 seconds is acceptable for this pipeline, but SSE would halve the perceived latency for free.
 
 ---
 
@@ -204,11 +204,11 @@ What I would do differently with more time:
 This project was built with Claude Code (Anthropic) as a coding assistant throughout.
 
 Claude helped with:
-- Project scaffolding — FastAPI app structure, SQLAlchemy models, Alembic async configuration
+- Project scaffolding - FastAPI app structure, SQLAlchemy models, Alembic async configuration
 - ARQ worker task implementation, retry logic, and dead-letter handling
-- Bug fixes — bcrypt 4.x compatibility, Alembic `run_sync` pattern for async engines, import resolution
+- Bug fixes - bcrypt 4.x compatibility, Alembic `run_sync` pattern for async engines, import resolution
 - Next.js frontend component and polling logic
 - DEPLOYMENT.md architecture documentation
 - README content, queue decisions write-up, and this section
 
-The architectural decisions — queue design, idempotency approach, 5-stage pipeline design, per-stage DB session strategy — were driven by the assignment requirements and my own judgment about distributed systems tradeoffs.
+The architectural decisions - queue design, idempotency approach, 5-stage pipeline design, per-stage DB session strategy - were driven by the assignment requirements and my own judgment about distributed systems tradeoffs.
